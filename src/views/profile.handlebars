@@ -1,11 +1,10 @@
-<h1> My Profile </h1>
 <div>
-    <h2> ¡Bienvenido/a: {{user.firstName}} {{user.lastName}}! </h2>
-    <h3> Datos del perfil: </h3>
-    <div>Edad: {{user.age}} </div>
-    <div> Email: {{user.email}} </div>
-    <div> Rol: {{user.role}} </div>
+    <a href="#" onclick="window.history.back(); return false;">Seguir Comprando</a>
 </div>
-
-
-<a href="/"> Home </a>
+<div>
+    <h1>Tu perfil</h1>
+    <p>Nombre : {{user.first_name}}</p>
+    <p>Apellido : {{user.last_name}}</p>
+    <p>Edad : {{user.age}}</p>
+    <p>Privilegios :  {{user.role}}</p>
+</div>

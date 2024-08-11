@@ -1,103 +1,73 @@
-const express = require("express")
-const mongoose = require("mongoose")
-const { dbName, mongoUri, port } = require("./config")
-const expressHandlebars = require("express-handlebars")
-const passport = require("passport")
-const { logger } = require("./logger/logger")
+/**
+ * Importación de módulos y configuraciones necesarias.
+ */
+import express from "express";
+import handlebars from 'express-handlebars'
+import {__dirname} from "./config.js";
+import initilizePassport from "./config/passport.config.js";
+import appMiddlewares from './config/appMiddlewares.js';
+import { app } from './config/server.js';
+import { productsRouter, cartsRoutes, sessionsRouter, viewesRoutes, logsRoute, userRouter } from './routes/routes.js'
+import initSocket from './socket.js';
+import realTimeProducts from "./routes/realTimeProductsRoute.js";
+import { generateProducts } from "./utils/utils.js";
+import { errorHandler } from "./middleweres/errorHandler.middleware.js"
+import { addLogger } from "./utils/logger.js";
+import epecs from "./config/docsConfig.js"
+import swggerUoExpress from 'swagger-ui-express'
+// Middlewares
+/**
+ * Middlewares de la aplicación.
+ */
+app.use(appMiddlewares);
 
+app.use('/apidocs', swggerUoExpress.serve ,swggerUoExpress.setup(epecs))
+// Rutas
+/**
+ * Definición de las rutas de la aplicación.
+ */
+app.use(addLogger)
+app.use("/api/realtimeproducts", realTimeProducts);
+app.use(express.static(__dirname + '/public'));
+app.set('views', __dirname + '/views');
+app.use("/api/products", productsRouter);
+app.use("/api/carts", cartsRoutes);
+app.use("/api/sessions", sessionsRouter);
+app.use("/api/users", userRouter);
+app.use("/loggerTest",logsRoute)
+app.use(viewesRoutes);
 
-const { configureCustomResponses } = require("./controllers/utils")
-const createProductsRouter = require("./routes/products.router")
-const createCartsRouter = require("./routes/carts.router")
-const createSessionsRouter = require("./routes/sessions.router")
-const createViewsRouter = require("./routes/views.router")
-const createMocksRouter = require("./routes/mocks.router")
-const createLoggerRouter = require("./routes/loggerTest.router")
-const createUsersRouter = require("./routes/users.router")
-
-const app = express()
-
-// Configuracion de express
-app.use(express.urlencoded({ extended: true }))
-app.use(express.json())
-app.use(configureCustomResponses)
-
-// Estrategias passport
-const initializeStrategyLocal = require("./sessions-config/passport-local.config")
-const initializeStrategyGitHub = require("./sessions-config/passport-github.config")
-const sessionMiddleware = require("./session/mongoStorage")
-const { useLogger } = require("./logger/logger")
-
-// Middlewares e inicializacion de estrategias
-app.use(sessionMiddleware)
-initializeStrategyLocal()
-initializeStrategyGitHub()
-
-// Passport
-app.use(passport.initialize())
-app.use(passport.session())
-
-// Swagger
-const swaggerJsDoc = require("swagger-jsdoc")
-const { serve, setup  } = require("swagger-ui-express")
-const _ = require("mongoose-paginate-v2")
+// Genera productos aleatorios
+/**
+ * Ruta para generar productos aleatorios.
+ */
+app.get('/mockingproducts/:numOfProducts', (req, res) => {
+    const numOfProducts = req.params.numOfProducts
+    const products = generateProducts(numOfProducts);
+    res.json(products); 
+});
 
 // Handlebars
-const handlebars = expressHandlebars.create({
-    defaultLayout: "main",
-    handlebars: require("handlebars"),
-    runtimeOptions: {
-        allowProtoPropertiesByDefault: true
-    }
-})
-app.engine("handlebars", handlebars.engine)
-app.set("views", `${__dirname}/views`)
-app.set("view engine", "handlebars")
+/**
+ * Configuración de Handlebars para las vistas.
+ */
+app.engine('handlebars', handlebars.engine())
+app.set('view engine', 'handlebars');
 
-// Public
-app.use(express.static(`${__dirname}/../public/`))
+// Middleware de manejo de errores
+/**
+ * Middleware para manejo de errores.
+ */
+app.use(errorHandler);
 
+// Passport - autenticación
+/**
+ * Inicialización de Passport para autenticación.
+ */
+initilizePassport();
 
-// Configuracion de swagger
-const dirname = `${__dirname}/../docs/**/*.yaml`
-const swaggerOptions = {
-    definition: {
-        openapi: "3.0.1",
-        info: {
-            title: "Ecommece-backend",
-            description: "App de ecommerce enfocada en su backend."
-        }
-    },
-    apis: [`${__dirname}/docs/**/*.yaml`]
-}
-const specs = swaggerJsDoc(swaggerOptions)
-app.use("/apidocs", serve, setup(specs))
-
-// Logger personalizado
-app.use(useLogger)
-
-// Funcion main
-const main = async () => {
-
-    await mongoose.connect(mongoUri, { dbName })
-
-    const routers = [
-        { path: "/api/sessions", createRouter: createSessionsRouter },
-        { path: "/", createRouter: createViewsRouter },
-        { path: "/api/products", createRouter: createProductsRouter },
-        { path: "/api/carts", createRouter: createCartsRouter },
-        { path: "/mockingproducts", createRouter: createMocksRouter },
-        {path: "/loggerTest", createRouter: createLoggerRouter},
-        {path: "/users", createRouter: createUsersRouter}
-    ]
-
-    for (const { path, createRouter } of routers) {
-        app.use(path, await createRouter())
-    }
-
-    app.listen(port, () => {
-        logger.info(`CoderServer Ready - port: ${port}`)
-    })
-}
-
-main()
+// Socket (realtime)
+/**
+ * Inicialización de Socket para comunicación en tiempo real.
+ */
+initSocket();

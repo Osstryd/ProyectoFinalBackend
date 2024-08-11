@@ -1,22 +1,191 @@
-<h1> PRODUCTS </h1>
-<div> Current Page: {{products.page}} </div>
-<div> Total pages: {{products.totalPages}} </div>
+<div>
+  <a>Bienvenido {{this.user.first_name}} {{this.user.last_name}} -</a>
+  <a href="#" onclick="logout()">Cerrar Sesión -</a>
+  <a id="roleLink" onclick="userRole('{{this.user.role}}')" data-role-link="admin" href="">Perfil</a>
+</div>
+{{#if result}}
+<select id="cartId" name="cartId" onchange="saveCartId(event)">
+  <option value="" selected>Seleccione el carrito</option>
+  {{#each users}}
+  <option value="{{cart}}">{{first_name}} {{last_name}} - Carrito Id : {{cart}} - </option>
+  {{/each}}
+</select>
+<a type="" id="cartLink" href="#" onclick="updateCartLink()">Ver Carrito</a>
+{{else}}
+<a type="" id="cartLink" href="/cart/{{this.cartId}}">Ver Carrito</a>
 
-<ul>
-    {{#each products.docs}}
-    <li> Title: {{title}} -- Desc: {{description}} -- ${{price}} -- Stock: {{stock}}u. -- Category: {{category}} </li>
+{{/if}}
+
+<h1>Productos</h1>
+
+{{#if prevLink}}
+<a href="{{prevLink}}">Página anterior</a>
+{{/if}}
+
+{{#if nextLink}}
+<a href="{{nextLink}}">Página siguiente</a>
+{{/if}}
+
+<div class="product-container">
+    {{#each products}}
+        <div>
+            <h2>{{title}}</h2>
+            <p>{{description}}</p>
+            <p>Precio: {{price}}</p>
+            <p>Categoría: {{category}}</p>
+            <p>Disponibles: {{stock}}</p>
+            <p>Cantidad: <span id="quantityCounter-{{@index}}">1</span></p>
+            <form id="cartForm" method="POST">
+                <input type="hidden" id="_id" name="_id" value="{{_id}}">
+                <button type="button" onclick="increaseQuantity({{@index}})">+</button>
+                <button type="button" onclick="decreaseQuantity({{@index}})">-</button>
+                <button type="button" onclick="saveProductId(event, '{{_id}}', '{{@index}}')">Agregar al carrito</button>
+            </form>
+            <hr>
+        </div>
     {{/each}}
-</ul>
+</div>
 
-{{#if products.hasPrevPage}}
-<a href="/api/products?page={{products.prevPage}}&limit={{products.limit}}"> Prev  </a>
+{{#if prevLink}}
+<a href="{{prevLink}}">Página anterior</a>
 {{/if}}
 
-{{#if products.hasNextPage}}
-<a href="/api/products?page={{products.nextPage}}&limit={{products.limit}}"> Next </a>
+{{#if nextLink}}
+<a href="{{nextLink}}">Página siguiente</a>
 {{/if}}
 
+<script>
 
-<p> To upload a product Image, go to: "/upload-product-images/:pid"</p>
-<a href="/"> Home </a>
+ document.addEventListener('DOMContentLoaded', function() {
+    const role = '{{this.user.role}}';
+    
+    userRole(role);
+});
 
+function userRole(role) {
+    let href = "/";
+    let text = "Perfil";
+    if (role === "admin") {
+        href = "/admin";
+        text = "Administración";
+    }
+    const adminLink = document.querySelector('a[data-role-link="admin"]');
+    adminLink.setAttribute('href', href);
+    adminLink.innerText = text;
+}
+  let cartId = "{{cartId}}";
+
+  function saveCartId() {
+    const selectElement = document.getElementById("cartId");
+    const cartID = selectElement.value;
+    return cartID;
+  }
+
+  let quantity = 1;
+
+  function increaseQuantity(index) {
+    const quantityCounter = document.getElementById(`quantityCounter-${index}`);
+    let quantity = parseInt(quantityCounter.innerText);
+    quantity++;
+    quantityCounter.innerText = quantity;
+}
+
+function decreaseQuantity(index) {
+    const quantityCounter = document.getElementById(`quantityCounter-${index}`);
+    let quantity = parseInt(quantityCounter.innerText);
+    if (quantity > 1) {
+        quantity--;
+        quantityCounter.innerText = quantity;
+    }
+}
+
+  function saveProductId(event, pid, index) {
+    const result = "{{result}}"
+    
+    if (result === "true") {
+        cartId = saveCartId();
+    }
+    
+    const prodID = pid;
+    const quantityCounter = document.getElementById(`quantityCounter-${index}`);
+    const quantity = parseInt(quantityCounter.innerText);
+    
+    updateForm(prodID, cartId, quantity);
+}
+
+  function updateForm(prodID, cartID, quantity) {
+    if (!cartID) {
+      alert("Seleccione un carrito");
+    } else {
+      const formAction = "/api/carts/" + cartID + "/product/" + prodID;
+      const requestData = { prodID: prodID, quantity: quantity };
+
+
+      fetch(formAction, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      })
+        .then(response => response.json())
+        .then(data => {
+          let message = data.message
+          if (data.status === "error"){
+             message = data.error;
+          }
+          alert(message);
+        })
+        .catch((error) => {
+          alert('Error al agregar el producto');
+        });
+    }
+  }
+
+  function updateCartLink() {
+    let cartID = saveCartId();
+    if (!cartID) {
+      alert("Seleccione un carrito");
+    } else {
+      const cartLink = document.getElementById("cartLink");
+      cartLink.href = "/cart/" + cartID;
+    }
+  }
+
+  function logout() {
+    fetch('/api/sessions/logout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.status === 200) {
+          window.location.href = "/login";
+        } else {
+          console.error('Error al cerrar sesión');
+        }
+      })
+      .catch(error => {
+        console.error('Error al cerrar sesión:', error);
+      });
+  }
+
+
+  function goBack() {
+    window.history.back();
+  }
+</script>
+
+<style>
+    .product-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .product-container div {
+        padding: 10px;
+        border: 1px solid #ccc;
+    }
+</style>
